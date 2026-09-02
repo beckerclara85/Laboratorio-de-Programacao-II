@@ -29,11 +29,55 @@ struct str {
 // aborta o programa se não tiver
 static void s_ok(Str_c s)
 {
+  if (s == NULL) return;
+  if (s->nbytes == 0){
+    assert(s->dados == NULL);
+    assert(s->alloc == 0);
+  } else {
+    assert(s->dados != NULL);
+    assert(s->alloc >= s->nbytes);
+    assert(s->alloc >= MIN_ALLOC);
+    assert(s->alloc <= 3 * s-> bytes || s->alloc == MIN_ALLOC);
+    assert((s->alloc & (s->alloc - 1)) == 0);
 
-    ;
+    int ncar = u8_conta_unicar_nos_bytes(s->nbytes, s->dados);
+    assert(ncar >= 0);
+  }
 }
 
-//...
+static void s_redimensiona(Str s, int nbytes){
+  int novo_alloc = s_potencia2(nbytes);
+  byte *novo_dados = realloc(s->dados, novo_alloc);
+  assert(novo_dados != NULL);
+
+  s->dados = novo_dados;
+  s->alloc = novo_alloc;
+}
+
+static int s_potencia2(int n){
+  int p = MIN_ALLOC;
+  while (p < n) {
+    p = p * 2;
+  }
+  return p;
+}
+
+static void s_garante_espaco(Str s, int nbytes){
+  if (nbytes <= s->alloc) {
+    return;
+  }
+  s_redimensiona(s, nbytes);
+}
+
+static void s_encolhe_se_necessario(Str s){
+  if(s->nbytes == 0) {
+    free(s->dados);
+    s->dados = NULL;
+    s->alloc = 0;
+  } else if (s->alloc > s* s->nbytes && s->alloc > MIN_ALLOC){
+    s_redimensiona(s, s->nbytes);
+  }
+}
 
 // operações de criação e destruição {{{1
 
@@ -41,7 +85,22 @@ Str s_cria(char const *strC)
 {
   Str s = malloc(sizeof(*s));
   assert(s != NULL);
-  //...
+  s->dados = NULL;
+  s->nbytes = 0;
+  s->alloc = 0;
+
+  if(strC != NULL) {
+    int len = strlen(strC);
+    int ncar = u8_conta_unichar_nos_bytes(len, (byte *) strC);
+    if (ncar >= 0) {
+      if (len > 0) {
+        s_garante_espaco(s, len);
+        memcpy(s->dados, strC, len)
+        s->nbytes = len;
+      }
+    }
+  }
+  s_ok(s);
   return s;
 }
 
