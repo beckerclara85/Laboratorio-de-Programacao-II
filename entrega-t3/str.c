@@ -97,6 +97,27 @@ Str s_cria(char const *strC)
   return s;
 }
 
+Str s_cria_número(double num) {
+  char buf[64];
+  sprintf(buf, "%g", num);
+  return s_cria(buf);
+}
+
+Str s_cria_unindo(Lista l, Str sep){
+  Str resultado = s_cria("");
+  int n = l_tam(l);
+
+  for (int i = 0; i < n; i++) {
+    Str item = l_dado_pos(l, i);
+    s_anexa(resultado, item);
+    if (i != n - 1) {
+      s_anexa(resultado, sep);
+    }
+  }
+
+  return resultado;
+}
+
 void s_destroi(Str s)
 {
   s_ok(s);
@@ -185,6 +206,13 @@ unichar s_ch(Str_c s, int pos)
   return uni;
 }
 
+double s_número(Str_c s) {
+  char *c = s_strc(s);
+  double num;
+  sscanf(c, "%lf", &num);
+  free(c);
+  return num;
+}
 
 // operações de busca e comparação {{{1
 
