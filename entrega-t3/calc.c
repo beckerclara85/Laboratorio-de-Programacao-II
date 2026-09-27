@@ -98,6 +98,47 @@ static int categoria_de(unichar c) {
     }
 }
 
-Str calculadora(Str expressão) {
+static int categoria_do_token(Str token){
+    if (s_tam(token) != 1) return -1;
+    unichar c = s_ch(token, 0);
+    return categoria_de(c);
+}
 
+Str calculadora(Str expressão) {
+    Lista tokens = tokeniza(expressão);
+    int n = l_tam(tokens);
+    int i = 0;
+
+    Lista pilha_operandos = l_cria();
+    Lista pilha_operadores = l_cria();
+
+    while (true) {
+        if(i < n) {
+            Str token = l_dado_pos(tokens, i);
+            if(categoria_do_token(token) == -1) {
+                l_empilha(pilha_operandos, token);
+                i++;
+                continue;
+            } 
+        }
+        int cat_entrada = (i < n) ? categoria_do_token(l_dado_pos(tokens, i)) : CAT_FIM_OU_VAZIA;
+        int cat_topo = l_vazia(pilha_operadores) ? CAT_FIM_OU_VAZIA : categoria_do_token(l_topo(pilha_operadores));
+    
+        int ação = tabela[cat_topo][cat_entrada];
+
+        if (ação == ACAO_TERMINA) {
+            break;
+        } else if (ação == ACAO_ERRO) {
+
+        } else if (ação == ACAO_EMPILHA) {
+            l_empilha(pilha_operadores, l_dado_pos(tokens, i));
+            i++;
+        } else if (ação == ACAO_DESCARTA) {
+            l_desempilha(pilha_operadores);
+            i++;
+        } else if (ação == ACAO_OPERA) {
+
+        }
+    }
+    
 }
