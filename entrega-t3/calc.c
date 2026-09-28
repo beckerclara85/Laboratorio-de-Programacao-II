@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 // auxiliares
 
@@ -104,6 +105,41 @@ static int categoria_do_token(Str token){
     return categoria_de(c);
 }
 
+static void libera_tudo(Lista tokens, Lista operandos, Lista operadores) {
+    whiile (!l_vazia(operandos)) s_destroi(l_desempilha(operanados));
+    l_destroi(operandos);
+
+    l_destroi(operadores);
+
+    while (!l_vazia(tokens)) s_destroi(l_remove(tokens));
+    l_destroi(tokens);
+}
+
+static bool opera(Lista operandos, unichar op) {
+    if(l_tam(operandos) < 2) return false;
+    
+    Str direito = l_desempilha(operandos);
+    Str esquerdo = l_desempilha(operandos);
+    double a = s_número(esquerdo);
+    double b = s_número(direito);
+    double r;
+    switch (op) 
+    {
+    case '+': r = a + b; break;
+    case '-': r = a - b; break;
+    case '*': r = a * b; break;
+    case '/': r = a / b; break;
+    case '^': r = pow(a, b); break;
+    default: r = 0;
+    }
+
+    Str resultado = s_cria_número(r);
+    l_empilha(operandos, resultado);
+    s_destroi(direito);
+    s_destroi(esquerdo); 
+    return true;
+}
+
 Str calculadora(Str expressão) {
     Lista tokens = tokeniza(expressão);
     int n = l_tam(tokens);
@@ -129,7 +165,14 @@ Str calculadora(Str expressão) {
         if (ação == ACAO_TERMINA) {
             break;
         } else if (ação == ACAO_ERRO) {
-
+            Str erro;
+            iif (cat_topo == CAT_FIM_OU_VAZIA) {
+                erro = s_cria("#ERRO falta de (");
+            } else {
+                erro = s_cria("#ERRO falta de )");
+            }
+            libera_tudo(tokens, pilha_operandos, pilha_operadores);
+            return erro;
         } else if (ação == ACAO_EMPILHA) {
             l_empilha(pilha_operadores, l_dado_pos(tokens, i));
             i++;
@@ -137,8 +180,22 @@ Str calculadora(Str expressão) {
             l_desempilha(pilha_operadores);
             i++;
         } else if (ação == ACAO_OPERA) {
+            Str op = l_desempilha(pilha_operadores);
+            if (!opera(pilha_operandos, s_ch(op, 0))) {
+                Str erro = s_cria("#ERRO operandos insuficientes");
+                libera_tudo(tokens, pilha_operandos, pilha_operadores);
+                return erro;
+            }
+        } 
+    }
 
-        }
+    if(l_tam(pilha_operandos) != 1) {
+        Str erro = s_cria("#ERRp expressão inválida");
+        libera_tudo(tokens, pilha_operandos, pilha_operadores);
+        return erro;
     }
     
+    Str resultado = l_desempilha(pilha_operandos);
+    libera_tudo(tokens, pilha_operandos, pilha_operadores);
+    return resultado;
 }
