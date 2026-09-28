@@ -83,7 +83,7 @@ static const int tabela[N_CATEGORIAS][N_CATEGORIAS] = {
   // coluna:      F                +-               */               ^                (                )
   /* V  */     { ACAO_TERMINA,  ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_ERRO   },
   /* +- */     { ACAO_OPERA,    ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA  },
-  /* */ */     { ACAO_OPERA,    ACAO_OPERA,      ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA  },
+  /* */        { ACAO_OPERA,    ACAO_OPERA,      ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA  },
   /* ^  */     { ACAO_OPERA,    ACAO_OPERA,      ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA  },
   /* (  */     { ACAO_ERRO,     ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_DESCARTA },
 };
@@ -106,7 +106,7 @@ static int categoria_do_token(Str token){
 }
 
 static void libera_tudo(Lista tokens, Lista operandos, Lista operadores) {
-    whiile (!l_vazia(operandos)) s_destroi(l_desempilha(operanados));
+    while (!l_vazia(operandos)) s_destroi(l_desempilha(operanados));
     l_destroi(operandos);
 
     l_destroi(operadores);
@@ -152,7 +152,7 @@ Str calculadora(Str expressão) {
         if(i < n) {
             Str token = l_dado_pos(tokens, i);
             if(categoria_do_token(token) == -1) {
-                l_empilha(pilha_operandos, token);
+                l_empilha(pilha_operandos, s_cria_cópia(token));
                 i++;
                 continue;
             } 
@@ -166,7 +166,7 @@ Str calculadora(Str expressão) {
             break;
         } else if (ação == ACAO_ERRO) {
             Str erro;
-            iif (cat_topo == CAT_FIM_OU_VAZIA) {
+            if (cat_topo == CAT_FIM_OU_VAZIA) {
                 erro = s_cria("#ERRO falta de (");
             } else {
                 erro = s_cria("#ERRO falta de )");
