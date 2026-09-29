@@ -76,17 +76,22 @@ enum {
     CAT_POT,
     CAT_ABRE,
     CAT_FECHA,
+    CAT_ATRIB,
     N_CATEGORIAS
 };
 
 static const int tabela[N_CATEGORIAS][N_CATEGORIAS] = {
-  // coluna:      F                +-               */               ^                (                )
-  /* V  */     { ACAO_TERMINA,  ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_ERRO   },
-  /* +- */     { ACAO_OPERA,    ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA  },
-  /* */        { ACAO_OPERA,    ACAO_OPERA,      ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA  },
-  /* ^  */     { ACAO_OPERA,    ACAO_OPERA,      ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA  },
-  /* (  */     { ACAO_ERRO,     ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_DESCARTA },
+  // coluna:      F                +-               */               ^                (                )                  =
+  /* V  */     { ACAO_TERMINA,  ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_ERRO,      ACAO_EMPILHA },
+  /* +- */     { ACAO_OPERA,    ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA,     ACAO_EMPILHA },
+  /* */        { ACAO_OPERA,    ACAO_OPERA,      ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA,     ACAO_EMPILHA },
+  /* ^  */     { ACAO_OPERA,    ACAO_OPERA,      ACAO_OPERA,      ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA,     ACAO_EMPILHA },
+  /* (  */     { ACAO_ERRO,     ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_DESCARTA,  ACAO_EMPILHA },
+  /* )  */     { ACAO_ERRO,     ACAO_ERRO,       ACAO_ERRO,       ACAO_ERRO,       ACAO_ERRO,       ACAO_ERRO,      ACAO_ERRO   },
+  /* =  */     { ACAO_OPERA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_EMPILHA,    ACAO_OPERA,     ACAO_EMPILHA },
 };
+
+static Dicionário variáveis = NULL;
 
 static int categoria_de(unichar c) {
     switch (c) {
@@ -95,14 +100,28 @@ static int categoria_de(unichar c) {
         case '^': return CAT_POT;
         case '(': return CAT_ABRE;
         case ')': return CAT_FECHA;
+        case '=': return CAT_ATRIB;
         default: return -1; 
     }
 }
 
-static int categoria_do_token(Str token){
+static int categoria_do_token(Str token) {
     if (s_tam(token) != 1) return -1;
     unichar c = s_ch(token, 0);
     return categoria_de(c);
+}
+
+static bool igual(chave_t a, chave_t b) {
+    return s_igual((Str_c) a, (Str_c) b);
+}
+
+static bool menor(chave_t a, chave_t b) {
+    char *um = s_strc((Str_c) a);
+    char *dois = s_strc((Str_c) b);
+    bool r = strcmp(um, dois) < 0;
+    free(um);
+    free(dois);
+    return r;
 }
 
 static void libera_tudo(Lista tokens, Lista operandos, Lista operadores) {
@@ -141,6 +160,11 @@ static bool opera(Lista operandos, unichar op) {
 }
 
 Str calculadora(Str expressão) {
+
+    if (variáveis == NULL){
+        variáveis = dic_cria(menor, igual);
+    }
+
     Lista tokens = tokeniza(expressão);
     int n = l_tam(tokens);
     int i = 0;
