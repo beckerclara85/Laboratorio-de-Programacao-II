@@ -125,7 +125,7 @@ static bool menor(chave_t a, chave_t b) {
 }
 
 static void libera_tudo(Lista tokens, Lista operandos, Lista operadores) {
-    while (!l_vazia(operandos)) s_destroi(l_desempilha(operanados));
+    while (!l_vazia(operandos)) s_destroi(l_desempilha(operandos));
     l_destroi(operandos);
 
     l_destroi(operadores);
@@ -134,13 +134,37 @@ static void libera_tudo(Lista tokens, Lista operandos, Lista operadores) {
     l_destroi(tokens);
 }
 
-static bool opera(Lista operandos, unichar op) {
-    if(l_tam(operandos) < 2) return false;
+static double valor_de_operando(Str token, bool *ok){
+    *ok = true;
+
+    if (é_dígito_ou_ponto(s_ch(token, 0))) {
+        return s_número(token);
+    }
+
+    valor_t v = dic_busca(variáveis, token);
+    if(v == VALOR_NÃO_EXISTE) {
+        *ok = false;
+        return 0;
+    }
+    return s_número((Str_c) v); 
+}
+
+static const char *opera(Lista operandos, unichar op) {
+    if(l_tam(operandos) < 2) return "#ERRO operandos insuficientes";
     
     Str direito = l_desempilha(operandos);
     Str esquerdo = l_desempilha(operandos);
-    double a = s_número(esquerdo);
-    double b = s_número(direito);
+
+    bool ok_esq, ok_dir;
+    double a = valor_de_operando(esquerdo, &ok_esq);
+    double b = valor_de_operando(direito, &ok_dir);
+
+    if (!ok_esq || !ok_dir) {
+        s_destroi(esquerdo);
+        s_destroi(direito);
+        return "#ERRO variáveis inexistente";
+    }
+
     double r;
     switch (op) 
     {
@@ -156,7 +180,43 @@ static bool opera(Lista operandos, unichar op) {
     l_empilha(operandos, resultado);
     s_destroi(direito);
     s_destroi(esquerdo); 
-    return true;
+    return NULL;
+}
+
+static const char *atribui(Lista operandos) {
+    if (l_tam(operandos) < 2) return "#ERRO operandos insuficientes";
+
+    Str direito = l_desempilha(operandos);
+    Str esquerdo = l_desempilha(operandos);
+
+    if (!é_início_de_identificador(s_ch(esquerdo, 0))) {
+        s_destroi(esquerdo);
+        s_destroi(direito);
+        return "#ERRO atribuição a algo que não é variável";
+    }
+
+    bool ok;
+    double valor = valor_de_operando(direito, &ok);
+    if(!ok) {
+        s_destroi(direito);
+        s_destroi(esquerdo);
+        return "#ERRO variável inexistente";
+    }
+
+    Str resultado = s_cria_número(valor);
+
+    valor_t anterior = dic_busca(variáveis, esquerdo);
+    if (anterior != VALOR_NÃO_EXISTE) {
+        s_destroi((Str) anterior);
+        dic_insere(variáveis, esquerdo, s_cria_cópia(resultado));
+        s_destroi(esquerdo);
+    } else {
+        dic_insere(variáveis, esquerdo, s_cria_cópia(resultado));
+    }
+
+    l_empilha(operandos, resultado);
+    s_destroi(direito);
+    return NULL;
 }
 
 Str calculadora(Str expressão) {
@@ -176,6 +236,12 @@ Str calculadora(Str expressão) {
         if(i < n) {
             Str token = l_dado_pos(tokens, i);
             if(categoria_do_token(token) == -1) {
+                unichar c = s_ch(token, 0);
+                if (!é_dígito_ou_ponto(c) && !é_início_de_identificador(c)) {
+                    Str erro = s_cria("#ERRO token inválido");
+                    libera_tudo(tokens, pilha_operandos, pilha_operadores);
+                    return erro;
+                }
                 l_empilha(pilha_operandos, s_cria_cópia(token));
                 i++;
                 continue;
@@ -205,8 +271,10 @@ Str calculadora(Str expressão) {
             i++;
         } else if (ação == ACAO_OPERA) {
             Str op = l_desempilha(pilha_operadores);
-            if (!opera(pilha_operandos, s_ch(op, 0))) {
-                Str erro = s_cria("#ERRO operandos insuficientes");
+            unichar c = s_ch(op, 0);
+            const char *msg = (c == '=') ? atribui(pilha_operandos) : opera(pilha_operandos, c);
+            if (msg != NULL) {
+                Str erro = s_cria(msg);
                 libera_tudo(tokens, pilha_operandos, pilha_operadores);
                 return erro;
             }
@@ -214,7 +282,7 @@ Str calculadora(Str expressão) {
     }
 
     if(l_tam(pilha_operandos) != 1) {
-        Str erro = s_cria("#ERRp expressão inválida");
+        Str erro = s_cria("#ERRO expressão inválida");
         libera_tudo(tokens, pilha_operandos, pilha_operadores);
         return erro;
     }
