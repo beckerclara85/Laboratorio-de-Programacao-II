@@ -67,4 +67,24 @@ void f_insere(Fila self, void *pdado)
   }
   self->ultimo = novo;
 }
+
+void f_remove(Fila self, void *pdado)
+{
+  assert(!f_tá_vazia(self));
+ 
+  Nó *n = self->primeiro;
+  if (pdado != NULL) {
+    memcpy(pdado, n->dado, self->tam_do_dado);
+  }
+ 
+  self->primeiro = n->prox;
+  if (self->primeiro == NULL) {
+    self->ultimo = NULL;
+  } else {
+    self->primeiro->ant = NULL;
+  }
+ 
+  free(n->dado);
+  free(n);
+}
  
