@@ -43,16 +43,19 @@ Grafo g_cria(int tam_nó, int tam_aresta) {
     g->aresta_atual = NULL
 };
 
+static void liberta_arestas(Aresta *a) {
+    while (a != NULL) {
+        Aresta *prox = a->prox;
+        free(a->valor);
+        free(a);
+        a = prox;
+    }
+}
+
 void g_destrói(Grafo self) {
     for (int i = 0; i < self->n-nos; i++) {
-        Aresta *a = self->nos[i].aresta;
-        while (a != NULL) {
-            Aresta *porx = a->prox;
-            free(a->valor);
-            free(a);
-            a = prox;
-        }
-    free(self->nos[i].valor);
+        liberta_arestas(self->nos[i].arestas);
+        free(self->nos[i].valor);
     }
     free(self->nos);
     free(self);
@@ -78,9 +81,26 @@ int g_insere_nó(Grafo self, void *p_dado) {
 };
 
 void g_remove_nó(Grafo self, int nó) {
-    Aresta *a = self->nos[nó].arestas;
-    while (a != NULL) {
-        // ...
-    }
+    liberta_arestas(self->nos[nó].arestas);
     free(self->nos[nó].valor);
+    
+    for (int i = 0; i < self->n_nos; i++) {
+        if (i == nó) continue;
+        Aresta *ant = NULL;
+        Aresta *atual = self->nos[i].arestas;
+        while(atual != NULL) {
+            Aresta *prox = atual->prox;
+            if (atual->destino == nó) {
+                // ...
+            } else {
+                //..
+                ant = atual;
+            }
+            atual = prox;
+        }
+    }
+    for (int i = nó; i < self->n_nos - 1; i++){
+        self->nos[i] = self->nos[i + 1];
+    }
+    self->n_nos--;
 }
