@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include <grafo.h>
+#include "grafo.h"
 
 typedef struct aresta Aresta;
 struct aresta 
@@ -29,18 +29,19 @@ struct grafo {
 };
 
 Grafo g_cria(int tam_nó, int tam_aresta) {
-    Grafo g = malloc(sizeoff(struct grafo));
+    Grafo g = malloc(sizeof(struct grafo));
     assert(g != NULL);
 
     g->tam_no = tam_nó;
     g->tam_aresta = tam_aresta;
-    g->n_nos = n_nos;
-    g->capacidade = 0
+    g->n_nos = 0;
+    g->capacidade = 0;
     g->nos = NULL;
     g->consulta_partem = true;
     g->consulta_no = 0;
     g->origem_atual = 0;
-    g->aresta_atual = NULL
+    g->aresta_atual = NULL;
+    return g;
 };
 
 static void liberta_arestas(Aresta *a) {
@@ -53,7 +54,7 @@ static void liberta_arestas(Aresta *a) {
 }
 
 void g_destrói(Grafo self) {
-    for (int i = 0; i < self->n-nos; i++) {
+    for (int i = 0; i < self->n_nos; i++) {
         liberta_arestas(self->nos[i].arestas);
         free(self->nos[i].valor);
     }
@@ -68,7 +69,7 @@ int g_insere_nó(Grafo self, void *p_dado) {
         } else {
             self->capacidade = self->capacidade * 2;
         }
-        self->nos = realloc(self-nos, self->capacidade * sizeof(No));
+        self->nos = realloc(self->nos, self->capacidade * sizeof(No));
         assert(self->nos != NULL);
     }
     int pos = self->n_nos;
@@ -91,9 +92,17 @@ void g_remove_nó(Grafo self, int nó) {
         while(atual != NULL) {
             Aresta *prox = atual->prox;
             if (atual->destino == nó) {
-                // ...
+                if (ant == NULL) {
+                    self->nos[i].arestas = prox;
+                } else {
+                    ant->prox = prox;
+                }
+                free(atual->valor);
+                free(atual);
             } else {
-                //..
+                if (atual->destino > nó) {
+                    atual->destino--;
+                }
                 ant = atual;
             }
             atual = prox;
