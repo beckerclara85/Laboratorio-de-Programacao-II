@@ -122,7 +122,6 @@ struct jogo {
   int       passos;     // quantos passos a cobrinha já deu
   int       passos_fruta; // passos quando comeu a última fruta
   int       max_passos;   // número máximo de passos nesta partida
-  bool      com_tela;    // está usando a tela?
   enum { normal, terminando, terminado } estado;
 };
 
@@ -131,24 +130,17 @@ struct jogo {
 void sorteia_obstáculos(Jogo j);
 void sorteia_fruta(Jogo j);
 
-Jogo jogo_cria()
+Jogo jogo_cria(int max_passos)
 {
   Jogo j = malloc(sizeof(*j));
   assert(j != NULL);
-  j->tela         = (retângulo){{2, 1}, {24, 50}};
-  j->aninha.corpo = f_cria(sizeof(posição));
-  j->obstáculos   = f_cria(sizeof(posição));
-  jogo_inicia(j, 0);
-  return j;
-}
-
-void jogo_inicia(Jogo j, int max_passos)
-{
-  while (!f_tá_vazia(j->aninha.corpo)) f_remove(j->aninha.corpo, NULL);
+  j->tela              = (retângulo){{2, 1}, {24, 50}};
+  j->aninha.corpo      = f_cria(sizeof(posição));
   j->aninha.direção    = cima;
   j->aninha.pos_cabeca = retângulo_centro(j->tela);
   f_insere(j->aninha.corpo, &j->aninha.pos_cabeca);
   j->aumentando = TAM_INI_COBRA;
+  j->obstáculos = f_cria(sizeof(posição));
   sorteia_obstáculos(j);
   sorteia_fruta(j);
   j->pontos       = 0;
@@ -156,7 +148,7 @@ void jogo_inicia(Jogo j, int max_passos)
   j->passos       = 0;
   j->passos_fruta = 0;
   j->max_passos   = max_passos;
-  j->com_tela     = false;
+  return j;
 }
 
 void jogo_destrói(Jogo j)
@@ -168,13 +160,14 @@ void jogo_destrói(Jogo j)
 
 bool jogo_terminou(Jogo j)
 {
-  return j->estado == terminado || (!j->com_tela && j->estado == terminando);
+  return j->estado == terminado;
 }
 
 int jogo_pontos(Jogo j)
 {
   return j->pontos;
 }
+
 
 // auxiliares {{{1
 
@@ -192,7 +185,7 @@ bool fila_contém(Fila f, posição pos)
 }
 
 // retorna um número aleatório entre min e max, inclusivos
-static int aleatório_entre(int min, int max)
+int aleatório_entre(int min, int max)
 {
   return min + rand() % (max - min + 1);
 }
@@ -326,10 +319,10 @@ void desenha_fruta(Jogo j)
   fputs(desenho_fruta, stdout);
 }
 
+
 // desenha a tela do jogo
 void jogo_desenha_tela(Jogo j)
 {
-  j->com_tela = true;
   t_seleciona_cor(cor_fundo, cor_contorno);
   t_limpa();
 
