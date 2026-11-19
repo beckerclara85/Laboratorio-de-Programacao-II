@@ -42,7 +42,7 @@ Grafo g_cria(int tam_nó, int tam_aresta) {
     g->origem_atual = 0;
     g->aresta_atual = NULL;
     return g;
-};
+}
 
 static void liberta_arestas(Aresta *a) {
     while (a != NULL) {
@@ -60,7 +60,7 @@ void g_destrói(Grafo self) {
     }
     free(self->nos);
     free(self);
-};
+}
 
 int g_insere_nó(Grafo self, void *p_dado) {
     if (self->n_nos == self->capacidade) {
@@ -79,7 +79,7 @@ int g_insere_nó(Grafo self, void *p_dado) {
     self->nos[pos].arestas = NULL;
     self->n_nos++;
     return pos;
-};
+}
 
 void g_remove_nó(Grafo self, int nó) {
     liberta_arestas(self->nos[nó].arestas);
@@ -112,4 +112,120 @@ void g_remove_nó(Grafo self, int nó) {
         self->nos[i] = self->nos[i + 1];
     }
     self->n_nos--;
+}
+
+void g_altera_valor_do_nó(Grafo self, int nó, void *p_dado) {
+    memcpy(self->nos[nó].valor, p_dado, self->tam_no);
+}
+
+void *g_valor_do_nó(Grafo self, int nó) {
+    return self->nos[nó].valor;
+}
+
+int g_num_nós(Grafo self) {
+    return self->n_nos;
+}
+
+void g_altera_valor_da_aresta(Grafo self, int nó_origem, int nó_destino, void *p_dado) {
+    Aresta *ant = NULL;
+    Aresta *atual = self->nos[nó_origem].arestas;
+    while (atual != NULL && atual->destino != nó_destino) {
+        ant = atual;
+        atual = atual->prox;
+    }
+    
+    if (p_dado == NULL) {
+        if (atual == NULL) {
+            return;
+        } else if (ant == NULL) {
+            self->nos[nó_origem].arestas = atual->prox;
+        } else {
+            ant->prox = atual->prox;
+        }
+        free(atual->valor);
+        free(atual);
+    } else if (atual != NULL) {
+        memcpy(atual->valor, p_dado, self->tam_aresta);
+    } else {
+        Aresta *nova = malloc(sizeof(Aresta));
+        assert(nova != NULL);
+        nova->valor = malloc(self->tam_aresta);
+        assert(nova->valor != NULL);
+        memcpy(nova->valor, p_dado, self->tam_aresta);
+        nova->destino = nó_destino;
+
+        nova->prox = self->nos[nó_origem].arestas;
+        self->nos[nó_origem].arestas = nova;
+    }
+}
+
+void *g_valor_da_aresta(Grafo self, int nó_origem, int nó_destino) {
+    Aresta *a = self->nos[nó_origem].arestas;
+    while(a != NULL) {
+        if (a->destino == nó_destino) {
+            return a->valor;
+        }
+        a = a->prox;
+    }
+    return NULL;
+}
+
+void g_arestas_que_partem(Grafo self, int nó_origem) {
+    self->consulta_partem = true;
+    self->consulta_no = nó_origem;
+    self->aresta_atual = self->nos[nó_origem].arestas;
+
+}
+
+void g_arestas_que_chegam(Grafo self, int nó_destino) {
+    self->consulta_partem = false;
+    self->consulta_no = nó_destino;
+    self->origem_atual = 0;
+    if (self->n_nos > 0) {
+        self->aresta_atual = self->nos[0].arestas;
+    } else {
+        self->aresta_atual = NULL;
+    }
+}
+
+void *g_próxima_aresta(Grafo self, int *p_nó_vizinho) {
+    if (self->consulta_partem) {
+        if(self->aresta_atual == NULL) return NULL;
+        Aresta *a = self->aresta_atual;
+        self->aresta_atual = a->prox;
+        if(p_nó_vizinho != NULL) {
+            *p_nó_vizinho = a->destino;
+        }
+        return a->valor;
+    }
+
+    while (self->origem_atual < self->n_nos) {
+        while(self->aresta_atual != NULL) {
+            Aresta *a = self->aresta_atual;
+            self->aresta_atual = a->prox;
+            if (a->destino == self->consulta_no) {
+                if (p_nó_vizinho != NULL) {
+                    *p_nó_vizinho = self->origem_atual;
+                }
+                return a->valor;
+            }
+        }
+        self->origem_atual++;
+        if (self->origem_atual < self->n_nos) {
+            self->aresta_atual = self->nos[self->origem_atual].arestas;
+        }
+    }
+    return NULL;
+}
+
+bool g_tem_ciclo(Grafo self) {
+    return false;
+}
+
+Fila g_ordem_topológica(Grafo self) {
+    Fila f = f_cria(sizeof(int));
+    for (int i = 0; i < self->n_nos; i++) {
+        f_insere(f, &i);
+    }
+    return f;
 }

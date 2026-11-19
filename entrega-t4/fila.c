@@ -9,22 +9,22 @@ struct nó {
     void *dado;
     Nó *ant;
     Nó *prox;
-}
+};
 
 struct fila {
     int tam_do_dado; // tamanho em bytes
     Nó *primeiro; // inicio da fila
-    Nó *último; // final da fila
+    Nó *ultimo; // final da fila
     Nó *atual;
     bool para_frente;
-}
+};
 
 Fila f_cria(int tam_do_dado){
     Fila f =malloc(sizeof(struct fila));
     assert(f != NULL);
     f->tam_do_dado  = tam_do_dado;
     f->primeiro     = NULL;
-    f->último       = NULL;
+    f->ultimo       = NULL;
     f->atual        = NULL;
     f->para_frente  = false;
     return f;
@@ -86,5 +86,38 @@ void f_remove(Fila self, void *pdado)
  
   free(n->dado);
   free(n);
+}
+
+void f_inicia_percurso(Fila self, int pos_inicial)
+{
+  Nó *n;
+  if (pos_inicial >= 0) {
+    self->para_frente = true;
+    n = self->primeiro;
+    for (int i = 0; i < pos_inicial && n != NULL; i++) {
+      n = n->prox;
+    }
+  } else {
+    self->para_frente = false;
+    n = self->ultimo;
+    for (int i = -1; i > pos_inicial && n != NULL; i--) {
+      n = n->ant;
+    }
+  }
+  self->atual = n;
+}
+
+bool f_próximo(Fila self, void *pdado)
+{
+  if (self->atual == NULL) return false;
+  if (pdado != NULL) {
+    memcpy(pdado, self->atual->dado, self->tam_do_dado);
+  }
+  if (self->para_frente) {
+    self->atual = self->atual->prox;
+  } else {
+    self->atual = self->atual->ant;
+  }
+  return true;
 }
  
