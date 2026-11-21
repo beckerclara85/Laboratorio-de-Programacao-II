@@ -206,13 +206,6 @@ unichar s_ch(Str_c s, int pos)
   return uni;
 }
 
-double s_número(Str_c s) {
-  char *c = s_strc(s);
-  double num;
-  sscanf(c, "%lf", &num);
-  free(c);
-  return num;
-}
 
 // operações de busca e comparação {{{1
 
