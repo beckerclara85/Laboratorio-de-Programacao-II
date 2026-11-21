@@ -11,13 +11,28 @@
 struct str {
     byte *dados; 
     int nbytes;
+    int nchars;
     int alloc;
 };
+// A memória para conter os bytes de uma string deve ser alocada e/ou
+//   realocada conforme a necessidade, cuidando para que a quantidade
+//   de memória alocada seja sempre:
+//   - nula (não alocada) se a string for vazia, ou
+//   - não inferior ao necessário para armazenar os bytes da codificação utf8;
+//   - não inferior à alocação mínima;
+//   - não superior ao triplo do número de bytes necessários
+//     (exceto quando for o mínimo);
+//   - uma potência de 2.
 
+// funções auxiliares {{{1
+
+// verifica se a string cad está de acordo com a especificação
+// aborta o programa se não tiver
 static void s_ok(Str_c s)
 {
-  if (s == NULL) return;
+  assert(s != NULL);
   if (s->nbytes == 0){
+    assert(s->nchars == 0);
     assert(s->dados == NULL);
     assert(s->alloc == 0);
   } else {
@@ -28,7 +43,7 @@ static void s_ok(Str_c s)
     assert((s->alloc & (s->alloc - 1)) == 0);
 
     int ncar = u8_conta_unichar_nos_bytes(s->nbytes, s->dados);
-    assert(ncar >= 0);
+    assert(ncar == s->nchars);
   }
 }
 
@@ -80,9 +95,10 @@ Str s_cria(char const *strC)
   assert(s != NULL);
   s->dados = NULL;
   s->nbytes = 0;
+  s->nchars = 0;
   s->alloc = 0;
 
-  if(strC != NULL) {
+  if (strC != NULL) {
     int len = strlen(strC);
     int ncar = u8_conta_unichar_nos_bytes(len, (byte *) strC);
     if (ncar >= 0) {
@@ -90,6 +106,7 @@ Str s_cria(char const *strC)
         s_garante_espaco(s, len);
         memcpy(s->dados, strC, len);
         s->nbytes = len;
+        s->nchars = ncar;
       }
     }
   }
@@ -97,12 +114,16 @@ Str s_cria(char const *strC)
   return s;
 }
 
+// Aloca, inicializa e retorna uma nova string, contendo a representação
+//   decimal de num
 Str s_cria_número(double num) {
   char buf[64];
   sprintf(buf, "%g", num);
   return s_cria(buf);
 }
 
+// Retorna uma nova string, resultado da concatenação das strings em l,
+//   com a string em sep entre cada duas strings de l
 Str s_cria_unindo(Lista l, Str sep){
   Str resultado = s_cria("");
   int n = l_tam(l);
@@ -137,6 +158,8 @@ Str s_cria_cópia(Str_c s)
    return s_cria_substring(s, 0, -1);
 }
 
+// Retorna uma nova string com o conteúdo do arquivo chamado nome.
+// Retorna uma string vazia em caso de erro.
 Str s_cria_de_arquivo(char *nome)
 {
   Str s = s_cria("");
@@ -159,6 +182,7 @@ Str s_cria_de_arquivo(char *nome)
         s_garante_espaco(s, (int) tam);
         memcpy(s->dados, buf, tam);
         s->nbytes = (int) tam;
+        s->nchars = ncar;
       }
     }
     free(buf);
@@ -174,7 +198,7 @@ Str s_cria_de_arquivo(char *nome)
 int s_tam(Str_c s)
 {
   s_ok(s);
-  return u8_conta_unichar_nos_bytes(s->nbytes, s->dados);
+  return s->nchars;
 }
 
 char *s_strc(Str_c s)
@@ -206,6 +230,13 @@ unichar s_ch(Str_c s, int pos)
   return uni;
 }
 
+double s_número(Str_c s) {
+  char *c = s_strc(s);
+  double num;
+  sscanf(c, "%lf", &num);
+  free(c);
+  return num;
+}
 
 // operações de busca e comparação {{{1
 
@@ -216,10 +247,27 @@ static int s_offset_bytes(Str_c s, int idx_char) {
   return (int)(p - s->dados);
 }
 
+static unichar s_ch_no_byte(Str_c s, int off, int *nb)
+{
+  unichar uni;
+  *nb = u8_unichar_nos_bytes(s->nbytes - off, s->dados + off, &uni);
+  assert(*nb > 0);
+  return uni;
+}
+
+static int s_byte_anterior(Str_c s, int off)
+{
+  off--;
+  while (off > 0 && (s->dados[off] & 0xC0) == 0x80) off--;
+  return off;
+}
+
 static bool s_contem_char(Str_c sb, unichar c) {
-  int n = s_tam(sb);
-  for (int i = 0; i < n; i++) {
-    if (s_ch(sb, i) == c) return true;
+  int off = 0;
+  while ( off < sb->nbytes) {
+    int nb;
+    if (s_ch_no_byte(sb, off, &nb) == c) return true;
+    off += nb;
   }
   return false;
 }
@@ -237,11 +285,14 @@ int s_busca_c(Str_c s, int pos, Str_c sb)
 {
   s_ok(s);
   s_ok(sb);
-  int ncar = s_tam(s);
+  int ncar = s->nchars;
   int idx = (pos >= 0) ? pos : ncar + pos + 1;
   if (idx < 0) idx = 0;
-  for (int i = idx; i < ncar; i++){
-    if(s_contem_char(sb, s_ch(s, i))) return i;
+  int off = s_offset_bytes(s, idx);
+  for (int i = idx; i < ncar; i++) {
+    int nb;
+    if (s_contem_char(sb, s_ch_no_byte(s, off, &nb))) return i;
+    off += nb;
   } 
   return -1;
 }
@@ -250,11 +301,15 @@ int s_busca_nc(Str_c s, int pos, Str_c sb)
 {
   s_ok(s);
   s_ok(sb);
-  int ncar = s_tam(s);
+  int ncar = s->nchars;
   int idx = (pos >= 0) ? pos : ncar + pos + 1;
-  for (int i = idx; i < ncar; i++){
-    if(!s_contem_char(sb, s_ch(s, i))) return i;
-  } 
+  if (idx < 0) idx = 0;
+  int off = s_offset_bytes(s, idx);
+  for (int i = idx; i < ncar; i++) {
+    int nb;
+    if (!s_contem_char(sb, s_ch_no_byte(s, off, &nb))) return i;
+    off += nb;
+  }
   return -1;
 }
 
@@ -262,11 +317,15 @@ int s_busca_rc(Str_c s, int pos, Str_c sb)
 {
   s_ok(s);
   s_ok(sb);
-  int ncar = s_tam(s);
+  int ncar = s->nchars;
   int idx = (pos >= 0) ? pos : ncar + pos + 1;
-  if  (idx > ncar) idx = ncar;
+  if (idx > ncar) idx = ncar;
+  if (idx <= 0) return -1;
+  int off = s_offset_bytes(s, idx);
   for (int i = idx - 1; i >= 0; i--) {
-    if (s_contem_char(sb, s_ch(s,i))) return i;
+    off = s_byte_anterior(s, off);
+    int nb;
+    if (s_contem_char(sb, s_ch_no_byte(s, off, &nb))) return i;
   }
   return -1;
 }
@@ -275,11 +334,15 @@ int s_busca_rnc(Str_c s, int pos, Str_c sb)
 {
   s_ok(s);
   s_ok(sb);
-  int ncar = s_tam(s);
+  int ncar = s->nchars;
   int idx = (pos >= 0) ? pos : ncar + pos + 1;
-  if  (idx > ncar) idx = ncar;
+  if (idx > ncar) idx = ncar;
+  if (idx <= 0) return -1;
+  int off = s_offset_bytes(s, idx);
   for (int i = idx - 1; i >= 0; i--) {
-    if (!s_contem_char(sb, s_ch(s,i))) return i;
+    off = s_byte_anterior(s, off);
+    int nb;
+    if (!s_contem_char(sb, s_ch_no_byte(s, off, &nb))) return i;
   }
   return -1;
 }
@@ -288,32 +351,26 @@ int s_busca_s(Str_c s, int pos, Str_c buscada)
 {
   s_ok(s);
   s_ok(buscada);
-  int ncar = s_tam(s);
+  int ncar = s->nchars;
   int idx = (pos >= 0) ? pos : ncar + pos + 1;
   if (idx < 0) idx = 0;
   if (idx > ncar) idx = ncar;
-
-  int nb = s_tam(buscada);
-  if (nb == 0) return idx;
-
-  for (int i  = idx; i + nb <= ncar; i++) {
-    int off1 = s_offset_bytes(s, i);
-    int off2 = s_offset_bytes(s, i + nb);
-    int len = off2 - off1;
-    if  (len == buscada->nbytes && memcmp(s->dados + off1, buscada->dados, len) == 0) {
-      return i;
-    }
+  if (buscada->nbytes == 0) return idx;
+  int off = s_offset_bytes(s, idx);
+  int nb = buscada->nbytes;
+  for (int i = idx; off + nb <= s->nbytes; i++) {
+    if (memcmp(s->dados + off, buscada->dados, nb) == 0) return i;
+    off += u8_nbytes_no_unichar_que_comeca_com(s->dados[off]);
   }
   return -1;
 }
-
 
 // operações de alteração {{{1
 
 void s_substitui(Str s, int pos, int tam, Str_c sb)
 {
   s_ok(s);
-  s_ok(sb);
+  if (sb != NULL) s_ok(sb);
   
   int ncar = s_tam(s);
   int start_raw = (pos >= 0) ? pos : ncar + pos + 1;
@@ -327,17 +384,29 @@ void s_substitui(Str s, int pos, int tam, Str_c sb)
   int b1 = s_offset_bytes(s, p1);
 
   int nbytes_sb = (sb == NULL) ? 0 : sb->nbytes;
+  int nchars_sb = (sb == NULL) ? 0 : sb->nchars;
   int novo_nbytes = s->nbytes - (b1 - b0) + nbytes_sb;
+
+  byte *origem = (sb == NULL) ? NULL : sb->dados;
+  byte *copia = NULL;
+  if (sb == s && nbytes_sb > 0) {
+    copia = malloc(nbytes_sb);
+    assert(copia != NULL);
+    memcpy(copia, sb->dados, nbytes_sb);
+    origem = copia;
+  }
 
   s_garante_espaco(s, novo_nbytes);
 
   memmove(s->dados + b0 + nbytes_sb, s->dados + b1, s->nbytes - b1);
   if (nbytes_sb > 0) {
-    memcpy(s->dados + b0, sb->dados, nbytes_sb);
+    memcpy(s->dados + b0, origem, nbytes_sb);
   }
   
   s->nbytes = novo_nbytes;
+  s->nchars = ncar - (p1 - p0) + nchars_sb;
   s_encolhe_se_necessario(s);
+  free(copia);
   s_ok(s);
 }
 
@@ -374,6 +443,7 @@ void s_substring(Str s, Str_c sb, int pos, int tam)
   }
 
   s->nbytes = novo_nbytes;
+  s->nchars = p1 - p0;
   s_encolhe_se_necessario(s);
   s_ok(s);
 }
@@ -399,6 +469,7 @@ void s_insere_c(Str s, int pos, unichar c)
   struct str tmp;
   tmp.dados = buf;
   tmp.nbytes = nb;
+  tmp.nchars = 1;
   tmp.alloc = MIN_ALLOC;
 
   s_substitui(s, pos, 0, &tmp);
@@ -426,7 +497,7 @@ void s_apara(Str s, Str_c sobras)
   
   int inicio = s_busca_nc(s, 0, sobras);
 
-  if(inicio == -1) {
+  if (inicio == -1) {
     s_substitui(s, 0, -1, NULL);
     return;
   }

@@ -137,7 +137,7 @@ static void libera_tudo(Lista tokens, Lista operandos, Lista operadores) {
 static double valor_de_operando(Str token, bool *ok){
     *ok = true;
 
-    if (é_dígito_ou_ponto(s_ch(token, 0))) {
+    if (!é_início_de_identificador(s_ch(token, 0))) {
         return s_número(token);
     }
 
@@ -162,7 +162,7 @@ static const char *opera(Lista operandos, unichar op) {
     if (!ok_esq || !ok_dir) {
         s_destroi(esquerdo);
         s_destroi(direito);
-        return "#ERRO variáveis inexistente";
+        return "#ERRO variável inexistente";
     }
 
     double r;
